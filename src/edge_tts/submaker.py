@@ -6,6 +6,7 @@ information provided by the service easier.
 """
 
 import math
+import re
 from typing import List, Tuple
 from xml.sax.saxutils import escape, unescape
 
@@ -98,7 +99,7 @@ class SubMaker:
             if sub_state_count == words_in_cue or idx == len(self.offset) - 1:
                 subs = sub_state_subs
                 split_subs: List[str] = [
-                    subs[i : i + 79] for i in range(0, len(subs), 79)
+                    subs[i: i + 79] for i in range(0, len(subs), 79)
                 ]
                 for i in range(len(split_subs) - 1):
                     sub = split_subs[i]
@@ -123,3 +124,70 @@ class SubMaker:
                 sub_state_start = -1
                 sub_state_subs = ""
         return data
+
+    def generate_subs_based_on_punc(self, text) -> str:
+        PUNCTUATION = ['，', '。', '！', '？', '；',
+                       '：', '\n', '“', '”', ',', '!', '\\. ']
+        # def clause(self)->list[str]:
+        #     start=0
+        #     i=0
+        #     text_list=[]
+        #     while(i<len(text)):
+        #         if text[i] in PUNCTUATION:
+        #             try:
+        #                 while text[i] in PUNCTUATION:
+        #                     i+=1
+        #             except IndexError:
+        #                 pass
+        #             text_list.append(text[start:i])
+        #             start=i
+        #         i+=1
+        #     return text_list
+
+        def clause(self) -> list[str]:
+            pattern = '(' + '|'.join(punc for punc in PUNCTUATION) + ')'
+            text_list = re.split(pattern, text)
+
+            index = 0
+            pattern = '^[' + ''.join(p for p in PUNCTUATION) + ']+$'
+            while (index < len(text_list)-1):
+                if not text_list[index+1]:
+                    text_list.pop(index+1)
+                    continue
+                if re.match(pattern, text_list[index+1]):
+                    if (text_list[index+1] == '\n'):
+                        text_list.pop(index+1)
+                        continue
+                    text_list[index] += text_list.pop(index+1)
+                else:
+                    index += 1
+
+            return text_list
+
+        self.text_list = clause(self)
+        if len(self.subs) != len(self.offset):
+            raise ValueError("subs and offset are not of the same length")
+        data = "WEBVTT\r\n\r\n"
+        j = 0
+        for text in self.text_list:
+            try:
+                start_time = self.offset[j][0]
+            except IndexError:
+                return data
+            try:
+                while (self.subs[j + 1] in text):
+                    j += 1
+            except IndexError:
+                pass
+            data += formatter(start_time, self.offset[j][1], text)
+            j += 1
+        return data
+
+
+if __name__ == "__main__":
+    generator = SubMaker()
+    generator.create_sub((0, 15000), " 你好,")
+    generator.create_sub((15000, 15000), "世界!")
+    print(generator.generate_subs_based_on_punc("你好,世界!"))
+    # print(generator.generate_subs())
+    print()

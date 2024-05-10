@@ -253,7 +253,7 @@ class Communicate:
 
     def __init__(
         self,
-        text: str,
+        text: Optional[str] = None,
         voice: str = "Microsoft Server Speech Text to Speech Voice (en-US, AriaNeural)",
         *,
         rate: str = "+0%",
@@ -268,9 +268,10 @@ class Communicate:
         Raises:
             ValueError: If the voice is not valid.
         """
-        if not isinstance(text, str):
-            raise TypeError("text must be str")
-        self.text: str = text
+        if text is not None:
+            if not isinstance(text, str):
+                raise TypeError("text must be str")
+        self.text: Optional[str] = text
 
         # Possible values for voice are:
         # - Microsoft Server Speech Text to Speech Voice (cy-GB, NiaNeural)
@@ -310,7 +311,7 @@ class Communicate:
             raise TypeError("receive_timeout must be int")
         self.receive_timeout: int = receive_timeout
 
-    async def stream(self) -> AsyncGenerator[Dict[str, Any], None]:
+    async def stream(self, text: Optional[str] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """Streams audio and metadata from the service."""
 
         async def send_command_request() -> None:
@@ -373,9 +374,13 @@ class Communicate:
                 raise UnknownResponse(f"Unknown metadata type: {meta_type}")
             raise UnexpectedResponse("No WordBoundary metadata found")
 
+        # Override text once provided
+        t = self.text
+        if text:
+            t = text
         # Split the text into multiple strings if it is too long for the service.
         texts = split_text_by_byte_length(
-            escape(remove_incompatible_characters(self.text)),
+            escape(remove_incompatible_characters(t)),
             calc_max_mesg_size(self.voice, self.rate, self.volume, self.pitch),
         )
 
